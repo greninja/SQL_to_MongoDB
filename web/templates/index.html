@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL to MongoDB Translator</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold text-center mb-8 text-gray-800">SQL to MongoDB Translator</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- SQL Input -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">SQL Query</h2>
+                <textarea id="sqlInput" class="w-full h-64 p-4 border rounded-lg font-mono"></textarea>
+                <div class="mt-4 flex justify-between">
+                    <button onclick="translateQuery()" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                        Translate
+                    </button>
+                    <button onclick="clearInput()" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        Clear
+                    </button>
+                </div>
+                <div class="mt-4">
+                    <button onclick="validateQuery()" class="bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition-colors w-full">
+                        Validate Query
+                    </button>
+                </div>
+            </div>
+
+            <!-- MongoDB Output -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">MongoDB Query</h2>
+                <textarea id="mongoOutput" class="w-full h-64 p-4 border rounded-lg font-mono" readonly></textarea>
+                <div class="mt-4 flex justify-between">
+                    <button onclick="copyToClipboard()" class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                        Copy to Clipboard
+                    </button>
+                    <button onclick="clearOutput()" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        Clear
+                    </button>
+                </div>
+                <div class="mt-4">
+                    <button onclick="explainTranslation()" class="bg-purple-500 text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition-colors w-full">
+                        Explain Translation
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Explanation Panel -->
+        <div id="explanationPanel" class="mt-8 bg-white rounded-lg shadow-lg p-6 hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Translation Explanation</h2>
+            <div id="explanationContent" class="prose max-w-none"></div>
+        </div>
+
+        <!-- Example Queries -->
+        <div class="mt-8 bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Example Queries</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 border rounded-lg">
+                    <h3 class="font-semibold mb-2">SELECT Query</h3>
+                    <pre class="bg-gray-100 p-2 rounded">SELECT name, age FROM users WHERE age > 18 ORDER BY name ASC LIMIT 10</pre>
+                </div>
+                <div class="p-4 border rounded-lg">
+                    <h3 class="font-semibold mb-2">INSERT Query</h3>
+                    <pre class="bg-gray-100 p-2 rounded">INSERT INTO users (name, age) VALUES ('John', 25)</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize CodeMirror for SQL input
+        var sqlEditor = CodeMirror.fromTextArea(document.getElementById("sqlInput"), {
+            mode: "text/x-sql",
+            theme: "monokai",
+            lineNumbers: true,
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            indentUnit: 4,
+            lineWrapping: true
+        });
+
+        // Initialize CodeMirror for MongoDB output
+        var mongoEditor = CodeMirror.fromTextArea(document.getElementById("mongoOutput"), {
+            mode: "application/json",
+            theme: "monokai",
+            lineNumbers: true,
+            readOnly: true,
+            lineWrapping: true
+        });
+
+        async function translateQuery() {
+            const sqlQuery = sqlEditor.getValue();
+            if (!sqlQuery.trim()) {
+                alert("Please enter a SQL query");
+                return;
+            }
+
+            try {
+                const response = await fetch('/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `sql_query=${encodeURIComponent(sqlQuery)}`
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    mongoEditor.setValue(JSON.stringify(data.mongodb_query, null, 2));
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function validateQuery() {
+            const sqlQuery = sqlEditor.getValue();
+            if (!sqlQuery.trim()) {
+                alert("Please enter a SQL query");
+                return;
+            }
+
+            try {
+                const response = await fetch('/agent/validate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `sql_query=${encodeURIComponent(sqlQuery)}`
+                });
+
+                const data = await response.json();
+                if (data.is_valid) {
+                    alert('Valid SQL query!');
+                } else {
+                    alert('Invalid SQL query: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function explainTranslation() {
+            const sqlQuery = sqlEditor.getValue();
+            if (!sqlQuery.trim()) {
+                alert("Please enter a SQL query");
+                return;
+            }
+
+            try {
+                const response = await fetch('/agent/explain', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `sql_query=${encodeURIComponent(sqlQuery)}`
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    const explanationPanel = document.getElementById('explanationPanel');
+                    const explanationContent = document.getElementById('explanationContent');
+                    explanationContent.innerHTML = data.explanation;
+                    explanationPanel.classList.remove('hidden');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function clearInput() {
+            sqlEditor.setValue('');
+        }
+
+        function clearOutput() {
+            mongoEditor.setValue('');
+        }
+
+        function copyToClipboard() {
+            const output = mongoEditor.getValue();
+            if (output) {
+                navigator.clipboard.writeText(output)
+                    .then(() => alert('Copied to clipboard!'))
+                    .catch(err => alert('Failed to copy: ' + err));
+            }
+        }
+    </script>
+</body>
+</html> 

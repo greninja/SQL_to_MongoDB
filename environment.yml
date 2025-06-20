@@ -1,0 +1,16 @@
+name: sql_to_mongodb
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - plotly
+  - python=3.9
+  - requests
+  - jupyterlab
+  - scikit-learn
+  - seaborn
+  - pip
+  - pandas
+  - scipy
+  - matplotlib
+prefix: /home/shadab/conda/envs/sql_to_mongodb
